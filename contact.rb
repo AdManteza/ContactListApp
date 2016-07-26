@@ -1,9 +1,16 @@
 require 'csv'
+require 'pry'
 
 # Represents a person in an address book.
 # The ContactList class will work with Contact objects instead of interacting with the CSV file directly
 class Contact
-  
+
+  class NonExistentRecordError < StandardError
+  end
+
+  class ExistingContactError < StandardError
+  end
+
   attr_accessor :name, :email
   
   # Creates a new contact object
@@ -13,7 +20,7 @@ class Contact
     # TODO: Assign parameter values to instance variables.
     @name = name
     @email = email
-    @@contacts += 1
+    Contact.create(name, email)
   end
 
   # Provides functionality for managing contacts in the csv file.
@@ -31,24 +38,27 @@ class Contact
     # @param email [String] the contact's email
     def create(name, email)
       # TODO: Instantiate a Contact, add its data to the 'contacts.csv' file, and return it.
+      
+      raise ExistingContactError, "Contact exists and cannot be created" if check_if_contact_exists?(email)
+      
       row_of_data = [name, email]
       CSV.open('contacts.csv', 'a+') do |csv_object|
         csv_object << row_of_data
       end
     end
-    
+  
     # Find the Contact in the 'contacts.csv' file with the matching id.
     # @param id [Integer] the contact id
     # @return [Contact, nil] the contact with the specified id. If no contact has the id, returns nil.
     def find(id)
       # TODO: Find the Contact in the 'contacts.csv' file with the matching id.
-      row_of_data = []
-      matching_array = CSV.read('contacts.csv')
-      matching_array.each_with_index do |row, index|
-        row << index + 1
-        row_of_data << row
+      output = []
+      array = self.all
+      raise NonExistentRecordError, "No record found" if array.size < id.to_i
+      array.each_with_index do |row, index|
+        output.push(row) if id.to_i == index + 1
       end
-      row_of_data
+      output
     end
     
     # Search for contacts by either name or email.
@@ -56,8 +66,24 @@ class Contact
     # @return [Array<Contact>] Array of Contact objects.
     def search(term)
       # TODO: Select the Contact instances from the 'contacts.csv' file whose name or email attributes contain the search term.
+      output = []
+      array = self.all
+      array.each do |row|
+        output.push(row) if row.include?(term.downcase)
+      end
+      output
+    end
+
+    def check_if_contact_exists?(email)
+      array = self.all
+      array.each do |row|
+        return true if row.include?(email)
+      end
     end
 
   end
 
 end
+
+
+

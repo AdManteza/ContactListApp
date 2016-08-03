@@ -1,5 +1,6 @@
 require_relative 'contact'
 require 'pry'
+require 'pg'
 
 # Interfaces between a user and their contact list. Reads from and writes to standard I/O.
 class ContactList
@@ -11,6 +12,9 @@ class ContactList
     self.display_list if ARGV[0] == 'list'
     self.show if ARGV[0] == 'show' && ARGV[1].size != 0
     self.search if ARGV[0] == 'search' && ARGV[1].size != 0
+    self.search_id if ARGV[0] == 'id'
+    self.update if ARGV[0] == 'update' && ARGV[1].size != 0
+    self.destroy if ARGV[0] == 'destroy' && ARGV[1].size != 0
   end
 
   def add_contact
@@ -18,16 +22,14 @@ class ContactList
     name = STDIN.gets.chomp
     puts "Add an email Address"
     email = STDIN.gets.chomp
-    Contact.new(name, email)
+    system 'clear'
+    Contact.create(name, email)
+    display_list
   end
 
   def display_list
-    output_array = Contact.all
-    output_array.each_with_index do |row, index|
-      puts "#{index+1}: #{row[0]} (#{row[1]})"
-    end
-    puts "-----------------------------"
-    puts "#{output_array.size} records total"
+    contacts = Contact.all
+    display_result(contacts)
   end
 
   def show
@@ -38,10 +40,10 @@ class ContactList
   end
 
   def search
-    name = ARGV[1]
-    output_array = Contact.search(name)
-    output_array.flatten!
-    display_search_result(output_array)
+    contact_detail = ARGV[1]
+    contact = Contact.search(contact_detail)
+    system 'clear'
+    display_result(contact)
   end
  
   def display_menu
@@ -50,15 +52,54 @@ class ContactList
     puts "   list - List all contacts"
     puts "   show - Show a contact"
     puts "   search - Search contacts"
+    puts "   id - Search by id"
+    puts "   update - Update a contact"
+    puts "   destroy - Destroy a contact"
   end
 
-  def display_search_result(output_array)
-    puts "Name: #{output_array[0]}"
-    puts "Email: #{output_array[1]}"
-    puts "-----------------------------"
-    puts "#{output_array.size - 1} records total"
+  def search_id
+    puts "ID number?"
+    id = STDIN.gets.chomp
+    contact = Contact.find(id)
+    display_result(contact)
   end
 
+  def update
+    id = ARGV[1]
+    contact = Contact.find(id)
+    system 'clear'
+    puts "UPDATE THIS CONTACT: "
+    puts " "
+    display_result(contact)
+    puts "UPDATE NAME:"
+    name = STDIN.gets.chomp
+    puts "UPDATE EMAIL:"
+    email = STDIN.gets.chomp
+    Contact.update(id, name, email) 
+    display_list
+  end
+
+  def destroy
+    id = ARGV[1]
+    contact = Contact.find(id)
+    display_result(contact)
+    puts " "
+    puts "CONTACT ID##{id} IS DESTROYED: "
+    puts " "
+    Contact.destroy(id) 
+    display_list
+  end
+
+  private
+
+  def display_result(array)
+    puts "------------------------------------------------"
+    array.each do |contact|
+      puts "ID##{contact.id} NAME:#{contact.name} EMAIL:#{contact.email}"
+    end
+    puts "------------------------------------------------"
+    puts "#{array.size} records total"
+  end
 end
 
 ContactList.new

@@ -1,4 +1,4 @@
-require 'csv'
+require 'pg'
 require 'pry'
 
 # Represents a person in an address book.
@@ -12,78 +12,94 @@ class Contact
   end
 
   attr_accessor :name, :email
+  attr_reader :id
   
-  # Creates a new contact object
-  # @param name [String] The contact's name
-  # @param email [String] The contact's email address
-  def initialize(name, email)
-    # TODO: Assign parameter values to instance variables.
+  def initialize(id, name, email)
+    @id = id
     @name = name
     @email = email
-    Contact.create(name, email)
   end
 
-  # Provides functionality for managing contacts in the csv file.
   class << self
-
-    # Opens 'contacts.csv' and creates a Contact object for each line in the file (aka each contact).
-    # @return [Array<Contact>] Array of Contact objects
-    def all
-      # TODO: Return an Array of Contact instances made from the data in 'contacts.csv'.
-      CSV.read('contacts.csv')
+    def conn
+      PG.connect(
+        host: 'localhost',
+        dbname: 'contactlist',
+        user: 'development',
+        password: 'development'
+      )
     end
 
-    # Creates a new contact, adding it to the csv file, returning the new contact.
-    # @param name [String] the new contact's name
-    # @param email [String] the contact's email
+    # displays all the contacts
+    def all
+      result = conn.exec('select * from contacts;')
+      
+      result.map { |contact| instance_from_row(contact) }
+    end
+
+    # creates a new contact
     def create(name, email)
-      # TODO: Instantiate a Contact, add its data to the 'contacts.csv' file, and return it.
+      result = self.search(email)
+
+      raise ExistingContactError, "Email is already used!" unless result == []
       
-      raise ExistingContactError, "Contact exists and cannot be created" if check_if_contact_exists?(email)
-      
-      row_of_data = [name, email]
-      CSV.open('contacts.csv', 'a+') do |csv_object|
-        csv_object << row_of_data
-      end
+      save(name,email)
+    end
+
+    # saves the new created contact into the database
+    def save(name, email)
+      conn.exec_params('INSERT INTO contacts (name, email) VALUES ($1, $2) returning id;',[name, email])
     end
   
-    # Find the Contact in the 'contacts.csv' file with the matching id.
-    # @param id [Integer] the contact id
-    # @return [Contact, nil] the contact with the specified id. If no contact has the id, returns nil.
+    # search id
     def find(id)
-      # TODO: Find the Contact in the 'contacts.csv' file with the matching id.
-      output = []
-      array = self.all
-      raise NonExistentRecordError, "No record found" if array.size < id.to_i
-      array.each_with_index do |row, index|
-        output.push(row) if id.to_i == index + 1
-      end
-      output
+      result = conn.exec_params('SELECT * FROM contacts WHERE id = $1::int;', [id])
+      
+      contact = result.map { |contact| instance_from_row(contact) }
+
+      raise NonExistentRecordError, 'No Contact by that ID' if contact == []
+
+      contact
     end
     
-    # Search for contacts by either name or email.
-    # @param term [String] the name fragment or email fragment to search for
-    # @return [Array<Contact>] Array of Contact objects.
-    def search(term)
-      # TODO: Select the Contact instances from the 'contacts.csv' file whose name or email attributes contain the search term.
-      output = []
-      array = self.all
-      array.each do |row|
-        output.push(row) if row.include?(term.downcase)
-      end
-      output
+    # search by name or email
+    def search(contact_detail)
+      result = conn.exec_params('SELECT * FROM contacts WHERE name ILIKE $1 OR email ILIKE $1;', ["%#{contact_detail}%"])
+      
+      contact = result.map { |contact| instance_from_row(contact) }
+
+      raise NonExistentRecordError, 'No Contact found' if contact == []
+
+      contact
     end
 
-    def check_if_contact_exists?(email)
-      array = self.all
-      array.each do |row|
-        return true if row.include?(email)
+    # updates contact
+    def update(id, name, email)
+      contact = self.find(id)
+      contact.each do |person|
+        person.name = name
+        person.email = email
       end
+
+      conn.exec_params('UPDATE contacts SET name = $1, email = $2 WHERE id = $3::int;', [name, email, id])
     end
 
+    # deletes the record
+    def destroy(id)
+      conn.exec_params('DELETE FROM contacts WHERE id = $1::int;', [id])
+    end
+
+    private
+
+    def instance_from_row(row)
+      Contact.new(row['id'], row['name'], row['email'])
+    end
   end
-
 end
+
+
+
+
 
 
 

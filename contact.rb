@@ -38,9 +38,6 @@ class Contact
     # @param email [String] the contact's email
     def create(name, email)
       # TODO: Instantiate a Contact, add its data to the 'contacts.csv' file, and return it.
-      
-      raise ExistingContactError, "Contact exists and cannot be created" if check_if_contact_exists?(email)
-      
       row_of_data = [name, email]
       CSV.open('contacts.csv', 'a+') do |csv_object|
         csv_object << row_of_data
@@ -54,7 +51,7 @@ class Contact
       # TODO: Find the Contact in the 'contacts.csv' file with the matching id.
       output = []
       array = self.all
-      raise NonExistentRecordError, "No record found" if array.size < id.to_i
+      
       array.each_with_index do |row, index|
         output.push(row) if id.to_i == index + 1
       end
@@ -73,17 +70,7 @@ class Contact
       end
       output
     end
-
-    def check_if_contact_exists?(email)
-      array = self.all
-      array.each do |row|
-        return true if row.include?(email)
-      end
-    end
-
   end
-
 end
-
 
 

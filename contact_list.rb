@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 require_relative 'contact'
 require 'pry'
 
@@ -18,11 +19,18 @@ class ContactList
     name = STDIN.gets.chomp
     puts "Add an email Address"
     email = STDIN.gets.chomp
+
+    raise Contact::ExistingContactError, "Contact exists and cannot be created" if check_if_contact_exists?(email)
+    
     Contact.new(name, email)
   end
 
   def display_list
     output_array = Contact.all
+    puts output_array.size
+
+    raise Contact::NonExistentRecordError, "No record found!" if output_array.size == 0
+    
     output_array.each_with_index do |row, index|
       puts "#{index+1}: #{row[0]} (#{row[1]})"
     end
@@ -33,6 +41,9 @@ class ContactList
   def show
     id = ARGV[1]
     output_array = Contact.find(id)
+
+    raise Contact::NonExistentRecordError, "No record found!" if output_array.size < id.to_i
+    
     output_array.flatten!
     display_search_result(output_array)
   end
@@ -41,6 +52,9 @@ class ContactList
     name = ARGV[1]
     output_array = Contact.search(name)
     output_array.flatten!
+
+    raise Contact::NonExistentRecordError, "No record found!" if output_array.include?(name) == false
+    
     display_search_result(output_array)
   end
  
@@ -57,6 +71,15 @@ class ContactList
     puts "Email: #{output_array[1]}"
     puts "-----------------------------"
     puts "#{output_array.size - 1} records total"
+
+  end
+
+  def check_if_contact_exists?(email) 
+    Contact.all.each do |row|
+      return true if row.include?(email)
+    end
+    
+    return false
   end
 
 end
